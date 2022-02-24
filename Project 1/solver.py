@@ -1,3 +1,4 @@
+from sre_parse import State
 import sys
 
 import puzz
@@ -43,11 +44,22 @@ def solve_puzzle(start_state, flavor):
     if strat == 'bfs':
         return BreadthFirstSolver(GOAL_STATE).solve(start_state)
     elif strat == 'ucost':
-        raise NotImplementedError(strat + ' not implemented yet')  # delete this line!
+        return UCSSolver(GOAL_STATE).solve(start_state)
+        # raise NotImplementedError(strat + ' not implemented yet')  # delete this line!
     elif strat == 'greedy':
-        raise NotImplementedError(strat + ' not implemented yet')  # delete this line!
+        if heur == 'h1':
+            return GreedyBestFirstSolver(GOAL_STATE).solve(start_state, 'h1')
+        elif heur == 'h2':
+            return GreedyBestFirstSolver(GOAL_STATE).solve(start_state, 'h2')
+        else:
+            return GreedyBestFirstSolver(GOAL_STATE).solve(start_state, 'h3')
     elif strat == 'astar':
-        raise NotImplementedError(strat + ' not implemented yet')  # delete this line!
+        if heur == 'h1':
+            return AstarSolver(GOAL_STATE).solve(start_state, 'h1')
+        elif heur == 'h2':
+            return AstarSolver(GOAL_STATE).solve(start_state, 'h2')
+        else:
+            return AstarSolver(GOAL_STATE).solve(start_state, 'h3')
     else:
         raise ValueError("Unknown search flavor '{}'".format(flavor))
 
@@ -61,9 +73,11 @@ def get_test_puzzles():
     
     """ 
     #
-    # fill in function body here
+    x = puzz.EightPuzzleBoard("125340678")
+    y = puzz.EightPuzzleBoard("541632078")
+    z = puzz.EightPuzzleBoard("235104867")
     #    
-    return (None, None, None)  # fix this line!
+    return (x,y,z)  # fix this line!
 
 
 def print_table(flav__results, include_path=False):
@@ -104,7 +118,7 @@ def print_table(flav__results, include_path=False):
     print("\n" + "\n".join(rows), "\n")
 
 
-class PuzzleSolver:
+class PuzzleSolver(object):
     """Base class for 8-puzzle solver."""
 
     def __init__(self, goal_state):
@@ -117,7 +131,7 @@ class PuzzleSolver:
         """Return the solution path from the start state of the search to a target.
         
         Results are obtained by retracing the path backwards through the parent tree to the start
-        state for the serach at the root.
+        state for the search at the root.
         
         Args:
             state (EightPuzzleBoard): target state in the search tree
@@ -229,7 +243,258 @@ class BreadthFirstSolver(PuzzleSolver):
                         self.add_to_frontier(succ)
 
         # if we get here, the search failed
-        return self.get_results_dict(None) 
+        return self.get_results_dict(None)
+
+
+class UCSSolver(PuzzleSolver):  # the cost of moving from one state to the next is equal to the square of the number on the tile that gets shifted.
+    """Implementation of Uniform Cost Search based on PuzzleSolver"""
+
+    def __init__(self, goal_state):  
+        self.frontier = pdqpq.PriorityQueue()
+        self.explored = set()
+        super().__init__(goal_state)
+
+    def add_to_frontier(self, node, cost=0): 
+        """Add state to frontier and increase the frontier count."""
+        self.frontier.add(node, cost)
+        self.frontier_count += 1
+
+    def expand_node(self, node): 
+        """Get the next state from the frontier and increase the expanded count."""
+        self.explored.add(node)
+        self.expanded_count += 1
+        return node.successors()
+        
+    def solve(self, start_state):
+        self.parents[start_state] = None
+        self.add_to_frontier(start_state)
+
+        if start_state == self.goal:  # edge case
+            return self.get_results_dict(start_state)
+
+        while not self.frontier.is_empty():  # iterate through frontier of states
+            node = self.frontier.peek(None)[0]  # get the next node in the frontier queue
+
+            if node == self.goal:  # checks for goal state right after pop()
+                return self.get_results_dict(node)
+
+            succs = self.expand_node(node)  # puts all expanded nodes into succ and adds them to explored
+
+            for move, succ in succs.items():  # e.g. 'up', 012345678
+                if (succ not in self.frontier) and (succ not in self.explored):  # if (n not in frontier) and (n not in explored): update parent and add to frontier
+                    self.parents[succ] = node
+                    self.add_to_frontier(succ, self.frontier.peek(None)[1] + self.get_cost(succ))  
+                elif (succ in self.frontier):  # if already in frontier: store old parent in temp variable, update parent
+                    oldParent = self.parents[succ]  
+                    self.parents[succ] = node
+                    if (self.frontier.get(succ) > self.frontier.peek(None)[1] + self.get_cost(succ)): # if we need to update
+                        self.frontier.add(succ, self.frontier.peek(None)[1] + self.get_cost(succ))  # update
+                    else:  # no need to update
+                        self.parents[succ] = oldParent  # restore old parent
+            self.frontier.pop()  # remove node from frontier
+
+        # if we get here, the search failed
+        return self.get_results_dict(None)
+
+
+class GreedyBestFirstSolver(PuzzleSolver):
+    """Implementation of Greedy Best-First Search based on PuzzleSolver"""
+
+    def __init__(self, goal_state):
+        self.frontier = pdqpq.PriorityQueue()
+        self.explored = set()      #convert iterables
+        super(GreedyBestFirstSolver, self).__init__(goal_state)
+
+    def add_to_frontier(self, node, priority=0):    # need to get heuristic/priority, and add as a param
+        """Add state to frontier and increase the frontier count."""
+        self.frontier.add(node, priority)
+        self.frontier_count += 1
+
+    def expand_node(self, node):
+        """Get the next state from the frontier and increase the expanded count."""
+        self.explored.add(node)
+        self.expanded_count += 1
+        return node.successors()
+
+    def h1(self, state):
+        """ count # of misplaced tiles in a successor state"""
+        incorrect = 0  # counter variable
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    if state.get_tile(i, j) != self.goal.get_tile(i, j):  # if wrong square value: 
+                        incorrect += 1  # increment counter
+        return incorrect        
+
+    def h2(self, state):
+        """heuristic based on the Manhattan distance of the tiles on the board"""
+        # coords is a dict with the correct coords of each tile in the goal state
+        coords = {0: (0, 2), 1: (1, 2), 2: (2, 2), 3: (0, 1), 4: (1, 1), 5: (2, 1), 6: (0, 0), 7: (1, 0), 8: (2, 0)}
+        distance = 0  # counter
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    currTile = state.get_tile(i, j)
+                    if currTile != self.goal.get_tile(i, j):  # if wrong square value: calculate how far away from correct space
+                        x = coords[int(currTile)][0]
+                        y = coords[int(currTile)][1]
+                        distance += (abs(x - i) + abs(y - j))  # increment counter
+        return distance
+
+    def h3(self, state):
+        """heuristic based on the weighted Manhattan distance of the tiles on the board (Manhatten Distance * (Tile Value ** 2))"""
+        # coords is a dict with the correct coords of each tile in the goal state
+        coords = {0: (0, 2), 1: (1, 2), 2: (2, 2), 3: (0, 1), 4: (1, 1), 5: (2, 1), 6: (0, 0), 7: (1, 0), 8: (2, 0)}
+        distance = 0  # counter
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    currTile = state.get_tile(i, j)
+                    if currTile != self.goal.get_tile(i, j):  # if wrong square value: calculate how far away from correct space and multiply by tile value squared
+                        weight = int(currTile)**2
+                        x = coords[int(currTile)][0]
+                        y = coords[int(currTile)][1]
+                        distance += ((abs(x - i) + abs(y - j))*weight)  # increment counter
+        return distance
+
+
+    def solve(self, start_state, h):         # h: heuristic type
+        self.parents[start_state] = None
+        self.add_to_frontier(start_state)
+
+        if start_state == self.goal:  # edge case
+            return self.get_results_dict(start_state)
+
+        while not self.frontier.is_empty():  # iterate through frontier of states
+            node = self.frontier.peek(None)[0]  # get the next node in the frontier queue
+
+            if node == self.goal:  # checks for goal state right after pop()
+                return self.get_results_dict(node)
+
+            succs = self.expand_node(node)  # puts all expanded nodes into succ and adds them to explored
+
+            for move, succ in succs.items():  # e.g. 'up', 012345678, calculate heuristic value
+                if h == 'h1':
+                    cost = self.h1(succ)
+                elif h == 'h2':
+                    cost = self.h2(succ)
+                elif h == 'h3':
+                    cost = self.h3(succ)
+
+                if (succ not in self.frontier) and (succ not in self.explored):  # if (n not in frontier) and (n not in explored): update parent and add to frontier
+                    self.parents[succ] = node
+                    self.add_to_frontier(succ, cost)
+                elif (succ in self.frontier):  # else if (n in frontier): store old parent in temp variable, update parent
+                    oldParent = self.parents[succ]
+                    self.parents[succ] = node
+                    if (self.frontier.get(succ) > cost):  # if we need to update
+                        self.frontier.add(succ, cost)  # update
+                    else:  # do not need to update
+                        self.parents[succ] = oldParent  # restore old parent value
+
+        # search failed if reached
+        return self.get_results_dict(None)
+
+
+class AstarSolver(PuzzleSolver):  # the cost of moving from one state to the next is equal to the square of the number on the tile that gets shifted.
+    """Implementation of Uniform Cost Search based on PuzzleSolver"""
+
+    def __init__(self, goal_state):  # Done
+        self.frontier = pdqpq.PriorityQueue()
+        self.explored = set()
+        super().__init__(goal_state)
+
+    def add_to_frontier(self, node, cost=0):  # Done
+        """Add state to frontier and increase the frontier count."""
+        self.frontier.add(node, cost)
+        self.frontier_count += 1
+
+    def expand_node(self, node):  # Done
+        """Get the next state from the frontier and increase the expanded count."""
+        self.explored.add(node)
+        self.expanded_count += 1
+        return node.successors()
+
+    def h1(self, state):
+        """ count # of misplaced tiles in a successor state"""
+        incorrect = 0  # counter variable
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    if state.get_tile(i, j) != self.goal.get_tile(i, j):  # if wrong square value: 
+                        incorrect += 1  # increment counter
+        return incorrect        
+
+    def h2(self, state):
+        """heuristic based on the Manhattan distance of the tiles on the board"""
+        # coords is a dict with the correct coords of each tile in the goal state
+        coords = {0: (0, 2), 1: (1, 2), 2: (2, 2), 3: (0, 1), 4: (1, 1), 5: (2, 1), 6: (0, 0), 7: (1, 0), 8: (2, 0)}
+        distance = 0  # counter
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    currTile = state.get_tile(i, j)
+                    if currTile != self.goal.get_tile(i, j):  # if wrong square value: calculate how far away from correct space
+                        x = coords[int(currTile)][0]
+                        y = coords[int(currTile)][1]
+                        distance += (abs(x - i) + abs(y - j))  # increment counter
+        return distance
+
+    def h3(self, state):
+        """heuristic based on the weighted Manhattan distance of the tiles on the board (Manhatten Distance * (Tile Value ** 2))"""
+        # coords is a dict with the correct coords of each tile in the goal state
+        coords = {0: (0, 2), 1: (1, 2), 2: (2, 2), 3: (0, 1), 4: (1, 1), 5: (2, 1), 6: (0, 0), 7: (1, 0), 8: (2, 0)}
+        distance = 0  # counter
+        for i in range(3):
+            for j in range(3):  # iterate through all coordinates: (0,0), (0,1), (0,2), (1,0), etc.
+                if state.get_tile(i, j) != "0":  # do not account for empty square
+                    currTile = state.get_tile(i, j)
+                    if currTile != self.goal.get_tile(i, j):  # if wrong square value: calculate how far away from correct space and multiply by tile value squared
+                        weight = int(currTile)**2
+                        x = coords[int(currTile)][0]
+                        y = coords[int(currTile)][1]
+                        distance += ((abs(x - i) + abs(y - j))*weight)  # increment counter
+        return distance
+
+    def solve(self, start_state, h):         # h: heuristic type
+        self.parents[start_state] = None
+        self.add_to_frontier(start_state)
+
+        if start_state == self.goal:  # edge case
+            return self.get_results_dict(start_state)
+
+        while not self.frontier.is_empty():  # iterate through frontier of states
+            node = self.frontier.pop()  # get the next node in the frontier queue
+
+            if node == self.goal:  # checks for goal state right after pop()
+                return self.get_results_dict(node)
+
+            succs = self.expand_node(node)  # puts all expanded nodes into succ and adds them to explored
+
+            for move, succ in succs.items():  # e.g. 'up', 012345678, calculate heuristic value
+                if h == 'h1':
+                    cost = self.h1(succ)
+                elif h == 'h2':
+                    cost = self.h2(succ)
+                elif h == 'h3':
+                    cost = self.h3(succ)
+
+                if (succ not in self.frontier) and (succ not in self.explored):  # if (n not in frontier) and (n not in explored): update parent and add to frontier
+                    self.parents[succ] = node
+                    self.add_to_frontier(succ, cost+self.get_cost(succ))
+                    
+                elif (succ in self.frontier):  # else if (n in frontier): store old parent in temp variable, update parent
+                    oldParent = self.parents[succ]
+                    self.parents[succ] = node
+                    
+                    if (self.frontier.get(succ) > cost+self.get_cost(succ)):  # if we need to update
+                        self.frontier.add(succ, cost+self.get_cost(succ)) #update
+                        
+                    else:  # do not need to update
+                        self.parents[succ] = oldParent  # restore old frontier value
+
+        # search failed if reached
+        return self.get_results_dict(None)
 
 
 
@@ -252,3 +517,5 @@ if __name__ == '__main__':
         results[flav] = solve_puzzle(start, flav)
 
     print_table(results, include_path=False)  # change to True to see the paths!
+
+
