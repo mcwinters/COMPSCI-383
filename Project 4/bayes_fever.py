@@ -1,5 +1,6 @@
 import random
 from matplotlib import pyplot as plt
+import copy
 
 
 class BooleanVariableNode(object):
@@ -73,9 +74,7 @@ class SimpleSampler(object):
         samples = self.generate_samples(num_samples)  # generate samples
         count = 0
         for dictionary in samples:
-            for pair in query_vals.items():
-                if dictionary[pair[0]] == pair[1]:
-                    count += 1
+            if all((k in dictionary and dictionary[k] == v) for k,v in query_vals.items()): count += 1
         
         return count / num_samples
 
@@ -104,8 +103,23 @@ class RejectionSampler(SimpleSampler):
         """
         
         samples = self.generate_samples(num_samples)  # generate samples
+        count = 0
         
-        return 0.0
+        if evidence_vals == {}:  # no evidence given, same as simple sampler prob
+            for dictionary in samples:
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
+            return count / len(samples)
+                    
+        else:
+            count2 = 0
+            combined_vals = copy.deepcopy(query_vals)
+            combined_vals.update(evidence_vals)
+            for dictionary in samples:  # Calculate P(A | B)
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined_vals.items()): count += 1  # if A & B
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence_vals.items()): count2 += 1 # if B
+                                    
+            if count2 == 0: return 0  # avoid / 0 error
+            return count / count2 # P(A | B) = P(A & B) / P(B)
 
 
 class LikelihoodWeightingSampler(SimpleSampler):
@@ -150,8 +164,23 @@ class LikelihoodWeightingSampler(SimpleSampler):
         """
         
         samples = self.generate_samples(num_samples)  # generate samples
+        count = 0
         
-        return 0.0
+        if evidence_vals == {}:  # no evidence given, same as simple sampler prob
+            for dictionary, weight in samples:
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
+            return count / len(samples)
+                    
+        else:
+            count2 = 0
+            combined_vals = copy.deepcopy(query_vals)
+            combined_vals.update(evidence_vals)
+            for dictionary, weight in samples:  # Calculate P(A | B)
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined_vals.items()): count += 1  # if A & B
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence_vals.items()): count2 += 1 # if B
+                                    
+            if count2 == 0: return 0  # avoid / 0 error
+            return count / count2 # P(A | B) = P(A & B) / P(B)
 
 
 def bayes_sample_size_plot(sampler1, sampler2, query, evidence, label1, label2, title, fname):
@@ -167,9 +196,39 @@ def bayes_sample_size_plot(sampler1, sampler2, query, evidence, label1, label2, 
         title: plot title
         fname: path of output pdf   
     """
-    # 
-    # fill in the function body here
-    #
+    
+    combined = query.copy()
+    combined.update(evidence)
+    
+    a1 = []
+    a2 = []
+    
+    for i in range(20,10000,100):
+        samples1 = sampler1.generate_samples(i)  # generate samples
+        samples2 = sampler2.generate_samples(i)  # generate samples
+        
+        count = 0
+        count2 = 0
+        
+        for dictionary in samples1:  # Calculate P(A | B)
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined.items()): count += 1  # if A & B
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence.items()): count2 += 1 # if B
+        
+        if count2 == 0: a1.append(0)
+        else: a1.append(count / count2)
+                
+        count = 0
+        count2 = 0
+        
+        for dictionary, weight in samples2:  # Calculate P(A | B)
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined.items()): count += 1  # if A & B
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence.items()): count2 += 1 # if B
+        
+        if count2 == 0: a2.append(0)
+        else: a2.append(count / count2)
+    
+    xaxis = [i for i in range(20,10000,100)]
+    two_line_plot(xaxis, a1, "sampler1", xaxis, a2, "sampler2", "Sampler1 vs. Sampler2", "383fig")
     return
 
 
