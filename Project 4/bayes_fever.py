@@ -72,8 +72,10 @@ class SimpleSampler(object):
         
         samples = self.generate_samples(num_samples)  # generate samples
         count = 0
+        
         for dictionary in samples:
             if all((k in dictionary and dictionary[k] == v) for k,v in query_vals.items()): count += 1
+            
         return count / num_samples
 
         
@@ -100,24 +102,13 @@ class RejectionSampler(SimpleSampler):
         Returns: empirical conditional probability of query values given evidence
         """
         
-        samples = self.generate_samples(num_samples)  # generate samples
+        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples
         count = 0
         
-        if evidence_vals == {}:  # no evidence given, same as simple sampler prob
-            for dictionary in samples:
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
-            return count / len(samples)
-                    
-        else:
-            count2 = 0
-            combined_vals = copy.deepcopy(query_vals)
-            combined_vals.update(evidence_vals)
-            for dictionary in samples:  # Calculate P(A | B)
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined_vals.items()): count += 1  # if A & B
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence_vals.items()): count2 += 1 # if B                       
-            if count2 == 0: return 0  # avoid / 0 error
-            return count / count2 # P(A | B) = P(A & B) / P(B)
-
+        for dictionary in samples:
+            if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
+            
+        return count / len(samples)
 
 class LikelihoodWeightingSampler(SimpleSampler):
     """Sampler that generates samples given evidence using likelihood weighting."""
@@ -160,23 +151,14 @@ class LikelihoodWeightingSampler(SimpleSampler):
         Returns: empirical conditional probability of query values given evidence
         """
         
-        samples = self.generate_samples(num_samples)  # generate samples
-        count = 0
+        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples
+        count,count2 = 0,0
         
-        if evidence_vals == {}:  # no evidence given, same as simple sampler prob
-            for dictionary, weight in samples:
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
-            return count / len(samples)
-                    
-        else:
-            count2 = 0
-            combined_vals = copy.deepcopy(query_vals)
-            combined_vals.update(evidence_vals)
-            for dictionary, _ in samples:  # Calculate P(A | B)
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined_vals.items()): count += 1  # if A & B
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence_vals.items()): count2 += 1 # if B               
-            if count2 == 0: return 0  # avoid / 0 error
-            return count / count2 # P(A | B) = P(A & B) / P(B)
+        for toople in samples:
+            count2 += toople[1]
+            if all((k in toople[0] and toople[0][k] == v) for k,v in query_vals.items()): count += toople[1]
+            
+        return count / count2
 
 
 def bayes_sample_size_plot(sampler1, sampler2, query, evidence, label1, label2, title, fname):
