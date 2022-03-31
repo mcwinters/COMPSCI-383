@@ -1,4 +1,4 @@
-import random, copy
+import random
 from matplotlib import pyplot as plt
 
 
@@ -71,12 +71,11 @@ class SimpleSampler(object):
         """
         
         samples = self.generate_samples(num_samples)  # generate samples
-        count = 0
+        count = 0  # initialize count variable
         
-        for dictionary in samples:
-            if all((k in dictionary and dictionary[k] == v) for k,v in query_vals.items()): count += 1
-            
-        return count / num_samples
+        for dictionary in samples:  # iterate through each sample (dictionary)
+            if all((k in dictionary and dictionary[k] == v) for k,v in query_vals.items()): count += 1  # increment if query_val key is in dict and if dict[key] = query_val[key]     
+        return count / num_samples  # return probability
 
         
 class RejectionSampler(SimpleSampler):
@@ -102,13 +101,13 @@ class RejectionSampler(SimpleSampler):
         Returns: empirical conditional probability of query values given evidence
         """
         
-        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples
-        count = 0
+        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples, pass in evidence vals too
+        count = 0  # initialize count variable
         
-        for dictionary in samples:
-            if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query_vals.items()): count += 1
+        for dictionary in samples:  # iterate through each sample (dictionary)
+            if all((k in dictionary and dictionary[k] == v) for k,v in query_vals.items()): count += 1  # increment if query_val key is in dict and if dict[key] = query_val[key]
             
-        return count / len(samples)
+        return count / len(samples)  # return probability
 
 class LikelihoodWeightingSampler(SimpleSampler):
     """Sampler that generates samples given evidence using likelihood weighting."""
@@ -151,14 +150,14 @@ class LikelihoodWeightingSampler(SimpleSampler):
         Returns: empirical conditional probability of query values given evidence
         """
         
-        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples
-        count,count2 = 0,0
+        samples = self.generate_samples(num_samples, evidence_vals)  # generate samples and pass in evidence vals
+        count,count2 = 0,0  # initialize both counts
         
-        for toople in samples:
-            count2 += toople[1]
-            if all((k in toople[0] and toople[0][k] == v) for k,v in query_vals.items()): count += toople[1]
+        for toople in samples:  # iterate through each tuple in samples - each toople is (dictionary, float)
+            count2 += toople[1]  # increment count 2 (probability denominator) by tuple's weight (float)
+            if all((k in toople[0] and toople[0][k] == v) for k,v in query_vals.items()): count += toople[1]  # if key in dict and dict[key] = query_vals[key], count += weight
             
-        return count / count2
+        return count / count2  # return probability
 
 
 def bayes_sample_size_plot(sampler1, sampler2, query, evidence, label1, label2, title, fname):
@@ -175,32 +174,24 @@ def bayes_sample_size_plot(sampler1, sampler2, query, evidence, label1, label2, 
         fname: path of output pdf   
     """
     
-    combined = query.copy()
-    combined.update(evidence)
+    a1,a2 = [],[]  # initialize yaxis values for sampler1, sampler2
     
-    a1,a2 = [],[]
-    
-    for i in range(20,10000,100):
-        samples1, samples2, count, count2 = sampler1.generate_samples(i), sampler2.generate_samples(i), 0, 0
+    for i in range(20,10000,100):  # each number of samples to test for
+        samples1, samples2, count, count2 = sampler1.generate_samples(i, evidence), sampler2.generate_samples(i, evidence), 0, 0  # intitialize samples and counts
         
-        for dictionary in samples1:  # Calculate P(A | B)
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined.items()): count += 1  # if A & B
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence.items()): count2 += 1 # if B
-
-        if count2 == 0: a1.append(0)
-        else: a1.append(count / count2)
+        for dictionary in samples1:  # iterate through each sample (dictionary)
+                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in query.items()): count += 1  # increment count if valid
+        a1.append(count / len(samples1))  # add yaxis value to a1
                 
-        count,count2 = 0,0
+        count = 0  # reinitialize count
         
-        for dictionary, weight in samples2:  # Calculate P(A | B)
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in combined.items()): count += 1  # if A & B
-                if all((k in dictionary and str(dictionary[k]) == str(v)) for k,v in evidence.items()): count2 += 1 # if B
-        
-        if count2 == 0: a2.append(0)
-        else: a2.append(count / count2)
+        for toople in samples2:  # iterate through each tuple (dictionary, float)
+            count2 += toople[1]  # increment count 2 (probability denominator) by tuple's weight (float)
+            if all((k in toople[0] and toople[0][k] == v) for k,v in query.items()): count += toople[1]  # if key in dict and dict[key] = query_vals[key], count += weight
+        a2.append(count / count2)  # add yaxis value to a2
     
-    xaxis = [i for i in range(20,10000,100)]
-    two_line_plot(xaxis, a1, "sampler1", xaxis, a2, "sampler2", "Sampler1 vs. Sampler2", "383fig.pdf")
+    xaxis = [i for i in range(20,10000,100)]  # set xaxis to list of each # of samples we tested 
+    two_line_plot(xaxis, a1, "sampler1", xaxis, a2, "sampler2", "Sampler1 vs. Sampler2", "383fig.pdf")  # call two_line_plot to generate
     return
 
 
