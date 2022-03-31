@@ -1,1 +1,1 @@
-In this project, I estimated some of the probabilities associated with the COMPSCI 383 Fever Bayesian network. I got experience using the matplotlib library, the copy library, and generator expressions.
+In this project, I estimated some of the probabilities associated with the COMPSCI 383 Fever Bayesian network. I got experience using the matplotlib library, the random library, and generator expressions.
