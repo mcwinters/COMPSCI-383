@@ -17,8 +17,8 @@ def q1_and_2():
     print('\n'+('─' * 50))
     print("Question 1 and 2")
     gridworld = None
-    EPSILON = None
-    discount_factor = None
+    EPSILON = 0.01
+    discount_factor = 0.9
     utilities, policy = gen_results(gridworld, discount_factor, EPSILON)
 
     num_convergance_utility= None
@@ -38,8 +38,8 @@ def q3():
     print('\n'+('─' * 50))
     print("Question 3")
     gridworld = None
-    EPSILON = None
-    discount_factor = None
+    EPSILON = 0.01
+    discount_factor = 0.9
     utilities, policy = gen_results(gridworld, discount_factor, EPSILON)
 
     """
@@ -60,8 +60,8 @@ def q4():
     print('\n'+('─' * 50))
     print("Question 4")
     gridworld = None
-    EPSILON = None
-    discount_factor = None
+    EPSILON = 0.01
+    discount_factor = 0.9
     utilities, policy = gen_results(gridworld, discount_factor, EPSILON)
 
     """
@@ -82,8 +82,8 @@ def q5():
     print('\n'+('─' * 50))
     print("Question 5")
     gridworld = None
-    EPSILON = None
-    discount_factor = None
+    EPSILON = 0.01
+    discount_factor = 0.6
     utilities, policy = gen_results(gridworld, discount_factor, EPSILON)
 
     """
