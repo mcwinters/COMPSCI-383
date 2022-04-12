@@ -45,7 +45,7 @@ def q3():
     """
     Enter one of the following answer choices below: "a", "b", "c", "d"
     """
-    changed_policy_answer = None
+    changed_policy_answer = "a"
 
     return {"gridworld": gridworld, "EPSILON": EPSILON,
         "discount_factor": discount_factor,"utilities": utilities,
@@ -67,7 +67,7 @@ def q4():
     """
     Enter one of the following answer choices below: "a", "b", "c", "d"
     """
-    changed_policy_answer = None
+    changed_policy_answer = "b"
 
     return {"gridworld": gridworld, "EPSILON": EPSILON,
         "discount_factor": discount_factor,"utilities": utilities,
@@ -89,7 +89,7 @@ def q5():
     """
     Enter one of the following answer choices below: "a", "b", "c", "d"
     """
-    changed_policy_answer = None
+    changed_policy_answer = "a"
 
     return {"gridworld": gridworld, "EPSILON": EPSILON,
         "discount_factor": discount_factor,"utilities": utilities,
@@ -97,7 +97,7 @@ def q5():
 
 
 ##########################
-def gen_results(mdp, gamma, epsilon):
+def gen_results(emdeepee, gamma, epsilon):
     """Calculate the utilities for the states of an MDP and create a policy from
     an MDP and a set of utilities for each state.
 
@@ -105,7 +105,7 @@ def gen_results(mdp, gamma, epsilon):
     change how it works and what it returns.
 
     Args:
-        mdp: An instance of the MDP class defined above, describing the environment
+        emdeepee: An instance of the MDP class defined above, describing the environment
         gamma: the discount factor
         epsilon: the change threshold to use when determining convergence.  The function returns
             when none of the states have a utility whose change from the previous iteration is more
@@ -117,14 +117,14 @@ def gen_results(mdp, gamma, epsilon):
         policy: A dictionary mapping state (x, y) tuples to the optimal action for that state (one
             of 'up', 'down', 'left', 'right', or None for terminal states)
     """
-    if mdp == None or gamma == None or epsilon == None:
-        print("At least one of mdp, gamma, or epsilon was None in gen_results.")
+    if emdeepee == None or gamma == None or epsilon == None:
+        print("At least one of emdeepee, gamma, or epsilon was None in gen_results.")
         return None, None
-    utilities = mdp.value_iteration(mdp, gamma, epsilon)
+    utilities = mdp.value_iteration(emdeepee, gamma, epsilon)
     try:
         print(mdp.ascii_grid_utils(utilities))
         print()
-        policy = mdp.derive_policy(mdp, utilities)
+        policy = mdp.derive_policy(emdeepee, utilities)
         print(mdp.ascii_grid_policy(policy))
     except:
         if utilities == None:
